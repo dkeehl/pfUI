@@ -28,21 +28,52 @@ function pfUI:UpdateConfig(group, subgroup, entry, value)
   end
 end
 
+local default_fonts = {
+  enUS = {
+    default   = "Interface\\AddOns\\pfUI\\fonts\\Myriad-Pro.ttf",
+    combat    = "Interface\\AddOns\\pfUI\\fonts\\Continuum.ttf",
+    quest     = "Interface\\AddOns\\pfUI\\fonts\\Myriad-Pro.ttf",
+    tooltip   = "Interface\\AddOns\\pfUI\\fonts\\Myriad-Pro.ttf",
+    chat      = "Interface\\AddOns\\pfUI\\fonts\\Myriad-Pro.ttf",
+    unitframe = "Interface\\AddOns\\pfUI\\fonts\\BigNoodleTitling.ttf",
+  },
+  zhCN = {
+    default   = "Fonts\\FZLBJW.ttf",
+    combat    = "Fonts\\FZJZJW.ttf",
+    quest     = "Fonts\\FZBWJW.ttf",
+    tooltip   = "Fonts\\FZXHJW.ttf",
+    chat      = "Fonts\\FZXHLJW.ttf",
+    unitframe = "Fonts\\FRIZQT__.ttf",
+  },
+}
+
+local default_fonts_mt = {
+  __index = function(tbl, _)
+    return rawget(tbl, "enUS")
+  end,
+}
+
+setmetatable(default_fonts, default_fonts_mt)
+
 function pfUI:LoadConfig()
+  local lang = GetLocale()
+
   --                MODULE        SUBGROUP       ENTRY               VALUE
-  pfUI:UpdateConfig("global",     nil,           "language",         GetLocale())
+  pfUI:UpdateConfig("global",     nil,           "language",         lang)
   pfUI:UpdateConfig("global",     nil,           "profile",          "default")
   pfUI:UpdateConfig("global",     nil,           "pixelperfect",     "0")
   pfUI:UpdateConfig("global",     nil,           "offscreen",        "0")
 
   pfUI:UpdateConfig("global",     nil,           "font_blizzard",    "0")
-  pfUI:UpdateConfig("global",     nil,           "font_default",     "Interface\\AddOns\\pfUI\\fonts\\Myriad-Pro.ttf")
+  pfUI:UpdateConfig("global",     nil,           "font_default",     default_fonts[lang].default)
   pfUI:UpdateConfig("global",     nil,           "font_size",        "12")
-  pfUI:UpdateConfig("global",     nil,           "font_unit",        "Interface\\AddOns\\pfUI\\fonts\\BigNoodleTitling.ttf")
+  pfUI:UpdateConfig("global",     nil,           "font_quest",       default_fonts[lang].quest)
+  pfUI:UpdateConfig("global",     nil,           "font_chat",        default_fonts[lang].chat)
+  pfUI:UpdateConfig("global",     nil,           "font_unit",        default_fonts[lang].unitframe)
   pfUI:UpdateConfig("global",     nil,           "font_unit_size",   "12")
   pfUI:UpdateConfig("global",     nil,           "font_unit_style",  "OUTLINE")
-  pfUI:UpdateConfig("global",     nil,           "font_unit_name",   "Interface\\AddOns\\pfUI\\fonts\\Myriad-Pro.ttf")
-  pfUI:UpdateConfig("global",     nil,           "font_combat",      "Interface\\AddOns\\pfUI\\fonts\\Continuum.ttf")
+  pfUI:UpdateConfig("global",     nil,           "font_unit_name",   default_fonts[lang].default)
+  pfUI:UpdateConfig("global",     nil,           "font_combat",      default_fonts[lang].combat)
 
   pfUI:UpdateConfig("global",     nil,           "force_region",     "1")
   pfUI:UpdateConfig("global",     nil,           "errors",           "1")
@@ -451,7 +482,7 @@ function pfUI:LoadConfig()
     pfUI:UpdateConfig("unitframes", unit,      "txtpowerright",    "none")
     pfUI:UpdateConfig("unitframes", unit,      "hitindicator",     "0")
     pfUI:UpdateConfig("unitframes", unit,      "hitindicatorsize", "15")
-    pfUI:UpdateConfig("unitframes", unit,      "hitindicatorfont", "Interface\\AddOns\\pfUI\\fonts\\Continuum.ttf")
+    pfUI:UpdateConfig("unitframes", unit,      "hitindicatorfont", default_fonts[lang].combat)
     pfUI:UpdateConfig("unitframes", unit,      "defcolor",         "1")
     pfUI:UpdateConfig("unitframes", unit,      "custom",           "0")
     pfUI:UpdateConfig("unitframes", unit,      "customfullhp",     "0")
@@ -468,7 +499,7 @@ function pfUI:LoadConfig()
     pfUI:UpdateConfig("unitframes", unit,      "healcolor",        "0,1,0,0.6")
     pfUI:UpdateConfig("unitframes", unit,      "overhealperc",     "20")
     pfUI:UpdateConfig("unitframes", unit,      "customfont",       "0")
-    pfUI:UpdateConfig("unitframes", unit,      "customfont_name",  "Interface\\AddOns\\pfUI\\fonts\\BigNoodleTitling.ttf")
+    pfUI:UpdateConfig("unitframes", unit,      "customfont_name",  default_fonts[lang].unitframe)
     pfUI:UpdateConfig("unitframes", unit,      "customfont_size",  "12")
     pfUI:UpdateConfig("unitframes", unit,      "customfont_style", "OUTLINE")
   end
@@ -534,7 +565,7 @@ function pfUI:LoadConfig()
   pfUI:UpdateConfig("bars",       nil,           "eqcolor",          ".2,.8,.2,.2")
   pfUI:UpdateConfig("bars",       nil,           "shiftdrag",        "1")
 
-  pfUI:UpdateConfig("bars",       nil,           "font",             "Interface\\AddOns\\pfUI\\fonts\\BigNoodleTitling.ttf")
+  pfUI:UpdateConfig("bars",       nil,           "font",             default_fonts[lang].unitframe)
   pfUI:UpdateConfig("bars",       nil,           "font_offset",      "0")
   pfUI:UpdateConfig("bars",       nil,           "macro_size",       "9")
   pfUI:UpdateConfig("bars",       nil,           "macro_color",      "1,1,1,1")
@@ -626,7 +657,7 @@ function pfUI:LoadConfig()
   pfUI:UpdateConfig("tooltip",    "questitem",   "showquest",        "1")
   pfUI:UpdateConfig("tooltip",    "questitem",   "showcount",        "0")
   pfUI:UpdateConfig("tooltip",    "statusbar",   "texture",          "Interface\\AddOns\\pfUI\\img\\bar")
-  pfUI:UpdateConfig("tooltip",     nil,          "font_tooltip",     "Interface\\AddOns\\pfUI\\fonts\\Myriad-Pro.ttf")
+  pfUI:UpdateConfig("tooltip",     nil,          "font_tooltip",     default_fonts[lang].tooltip)
   pfUI:UpdateConfig("tooltip",     nil,          "font_tooltip_size", "12")
 
   pfUI:UpdateConfig("chat",       "text",        "input_width",      "0")
@@ -746,7 +777,7 @@ function pfUI:LoadConfig()
   pfUI:UpdateConfig("screenshot", nil,           "loot",             "0")
   pfUI:UpdateConfig("screenshot", nil,           "hideui",           "0")
   pfUI:UpdateConfig("screenshot", nil,           "caption",          "0")
-  pfUI:UpdateConfig("screenshot", nil,           "caption_font",     "Interface\\AddOns\\pfUI\\fonts\\BigNoodleTitling.ttf")
+  pfUI:UpdateConfig("screenshot", nil,           "caption_font",     default_fonts[lang].unitframe)
   pfUI:UpdateConfig("screenshot", nil,           "caption_size",     "22")
 
   pfUI:UpdateConfig("gm",         nil,           "disable",          "1")
