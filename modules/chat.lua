@@ -648,7 +648,7 @@ pfUI:RegisterModule("chat", "vanilla:tbc", function ()
   for i,v in ipairs({ChatFrameEditBox:GetRegions()}) do
     if i==6 or i==7 or i==8 then v:Hide() end
     if v.SetFont then
-      v:SetFont(pfUI.font_default, C.global.font_size + 1, "OUTLINE")
+      v:SetFont(pfUI.font_chat, C.global.font_size + 1, "OUTLINE")
     end
   end
   ChatFrameEditBox:SetAltArrowKeyMode(false)
