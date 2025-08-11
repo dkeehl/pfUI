@@ -120,6 +120,7 @@ pfUI:RegisterSkin("Profession", "vanilla:tbc", function ()
           inputbox:DisableDrawLayer("BACKGROUND")
           CreateBackdrop(inputbox)
           SetAllPointsOffset(inputbox.backdrop, inputbox, .2)
+          inputbox:SetJustifyH("CENTER")
           inputbox:SetWidth(36)
         end
 
@@ -215,7 +216,7 @@ pfUI:RegisterSkin("Profession", "vanilla:tbc", function ()
               end
             end
           end
-        end, true)
+        end)
       end
 
       -- Compatibility
@@ -251,7 +252,7 @@ pfUI:RegisterSkin("Profession", "vanilla:tbc", function ()
       end
       -- build remaining tradeskills
       for i = 9, _G[displayed] do
-        local button = CreateFrame("Button", template..i, frame, template.."ButtonTemplate")
+        local button = _G[template..i] or CreateFrame("Button", template..i, frame, template.."ButtonTemplate")
         button:SetPoint("TOPLEFT", _G[template..i - 1], "BOTTOMLEFT")
       end
       for i = 1, _G[displayed] do SkinCollapseButton(_G[template..i]) end

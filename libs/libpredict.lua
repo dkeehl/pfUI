@@ -18,7 +18,7 @@ setfenv(1, pfUI:GetEnvironment())
 if pfUI.api.libpredict then return end
 
 local senttarget
-local heals, ress, events = {}, {}, {}
+local heals, ress, events, hots = {}, {}, {}, {}
 
 local PRAYER_OF_HEALING
 do -- Prayer of Healing
@@ -33,6 +33,51 @@ do -- Prayer of Healing
   }
 
   PRAYER_OF_HEALING = locales[GetLocale()] or locales["enUS"]
+end
+
+local REJUVENATION
+do -- Rejuvenation
+  local locales = {
+    ["deDE"] = "Verjüngung",
+    ["enUS"] = "Rejuvenation",
+    ["esES"] = "Rejuvenecimiento",
+    ["frFR"] = "Récupération",
+    ["koKR"] = "회복",
+    ["ruRU"] = "Омоложение",
+    ["zhCN"] = "回春术",
+  }
+
+  REJUVENATION = locales[GetLocale()] or locales["enUS"]
+end
+
+local RENEW
+do -- Renew
+  local locales = {
+    ["deDE"] = "Erneuerung",
+    ["enUS"] = "Renew",
+    ["esES"] = "Renovar",
+    ["frFR"] = "Rénovation",
+    ["koKR"] = "소생",
+    ["ruRU"] = "Обновление",
+    ["zhCN"] = "恢复",
+  }
+
+  RENEW = locales[GetLocale()] or locales["enUS"]
+end
+
+local REGROWTH
+do -- Regrowth
+  local locales = {
+    ["deDE"] = "Nachwachsen",
+    ["enUS"] = "Regrowth",
+    ["esES"] = "Recrecimiento",
+    ["frFR"] = "Rétablissement",
+    ["koKR"] = "재생",
+    ["ruRU"] = "Восстановление",
+    ["zhCN"] = "愈合",
+  }
+
+  REGROWTH = locales[GetLocale()] or locales["enUS"]
 end
 
 local libpredict = CreateFrame("Frame")
@@ -88,6 +133,10 @@ function libpredict:ParseComm(sender, msg)
         for i=4,8 do
           if msgobj[i] then table.insert(target, msgobj[i]) end
         end
+      end
+
+      if msgobj[1] == "Reju" or msgobj[1] == "Renew" or msgobj[1] == "Regr" then --hots
+        msgtype, target, heal, time = "Hot", msgobj[2], msgobj[1], msgobj[3]
       end
     elseif select and UnitCastingInfo then
       -- latest healcomm
@@ -151,6 +200,8 @@ function libpredict:ParseChatMessage(sender, msg, comm)
     end
   elseif msgtype == "Ress" then
     libpredict:Ress(sender, target)
+  elseif msgtype == "Hot" then
+    libpredict:Hot(sender, target, heal, time)
   end
 end
 
@@ -168,6 +219,23 @@ function libpredict:Heal(sender, target, amount, duration)
   heals[target] = heals[target] or {}
   heals[target][sender] = { amount, timeout }
   libpredict:AddEvent(timeout, target)
+end
+
+function libpredict:Hot(sender, target, spell, duration)
+  hots[target] = hots[target] or {}
+  hots[target][spell] = hots[target][spell] or {}
+
+  hots[target][spell].duration = duration
+  hots[target][spell].start = GetTime()
+
+  -- update aura events of relevant unitframes
+  if pfUI and pfUI.uf and pfUI.uf.frames then
+    for _, frame in pairs(pfUI.uf.frames) do
+      if frame.namecache == target then
+        frame.update_aura = true
+      end
+    end
+  end
 end
 
 function libpredict:HealStop(sender)
@@ -248,6 +316,8 @@ local realm = GetRealmName()
 local player = UnitName("player")
 local cache, gear_string = {}, ""
 local resetcache = CreateFrame("Frame")
+local rejuvDuration, renewDuration = 12, 15 --default durations
+local hotsetbonus = libtipscan:GetScanner("hotsetbonus")
 resetcache:RegisterEvent("PLAYER_ENTERING_WORLD")
 resetcache:RegisterEvent("LEARNED_SPELL_IN_TAB")
 resetcache:RegisterEvent("CHARACTER_POINTS_CHANGED")
@@ -260,10 +330,9 @@ resetcache:SetScript("OnEvent", function()
     pfUI_cache["prediction"][realm][player] = pfUI_cache["prediction"][realm][player] or {}
     pfUI_cache["prediction"][realm][player]["heals"] = pfUI_cache["prediction"][realm][player]["heals"] or {}
     cache = pfUI_cache["prediction"][realm][player]["heals"]
-    return
   end
 
-  if event == "UNIT_INVENTORY_CHANGED" then
+  if event == "UNIT_INVENTORY_CHANGED" or "PLAYER_ENTERING_WORLD" then
     -- skip non-player events
     if arg1 and arg1 ~= "player" then return end
 
@@ -275,6 +344,20 @@ resetcache:SetScript("OnEvent", function()
     -- abort when inventory didn't change
     if gear == gear_string then return end
     gear_string = gear
+
+    local setBonusCounter
+    setBonusCounter = 0
+    for i=1,10 do --there is no need to check slots above 10
+      hotsetbonus:SetInventoryItem("player", i)
+      if hotsetbonus:Find(L["healduration"]["Rejuvenation"]) then setBonusCounter = setBonusCounter + 1 end
+    end
+    rejuvDuration = setBonusCounter == 8 and 15 or 12
+    setBonusCounter = 0
+    for i =1,10 do
+      hotsetbonus:SetInventoryItem("player", i)
+      if hotsetbonus:Find(L["healduration"]["Renew"]) then setBonusCounter = setBonusCounter + 1 end
+    end
+    renewDuration = setBonusCounter == 5 and 18 or 15
   end
 
   -- flag all cached heals for renewal
@@ -314,7 +397,7 @@ hooksecurefunc("CastSpell", function(id, bookType)
   spell_queue[1] = effect
   spell_queue[2] = effect.. ( rank or "" )
   spell_queue[3] = UnitName("target") and UnitCanAssist("player", "target") and UnitName("target") or UnitName("player")
-end, true)
+end)
 
 hooksecurefunc("CastSpellByName", function(effect, target)
   if not libpredict.sender.enabled then return end
@@ -325,10 +408,13 @@ hooksecurefunc("CastSpellByName", function(effect, target)
 
   local default = UnitName("target") and UnitCanAssist("player", "target") and UnitName("target") or UnitName("player")
 
+  target = target and type(target) == "string" and UnitName(target) or target
+  target = target and target == 1 and UnitName("player") or target
+
   spell_queue[1] = effect
   spell_queue[2] = effect.. ( rank or "" )
-  spell_queue[3] = mouseover or default
-end, true)
+  spell_queue[3] = target or mouseover or default
+end)
 
 local scanner = libtipscan:GetScanner("prediction")
 hooksecurefunc("UseAction", function(slot, target, selfcast)
@@ -340,7 +426,7 @@ hooksecurefunc("UseAction", function(slot, target, selfcast)
   spell_queue[1] = effect
   spell_queue[2] = effect.. ( rank or "" )
   spell_queue[3] = selfcast and UnitName("player") or UnitName("target") and UnitCanAssist("player", "target") and UnitName("target") or UnitName("player")
-end, true)
+end)
 
 libpredict.sender = CreateFrame("Frame", "pfPredictionSender", UIParent)
 libpredict.sender.enabled = true
@@ -352,6 +438,19 @@ libpredict.sender.SendResCommMsg = function(self, msg)
   SendAddonMessage("CTRA", msg, "RAID")
   SendAddonMessage("CTRA", msg, "BATTLEGROUND")
 end
+
+libpredict.sender:SetScript("OnUpdate", function()
+  -- trigger delayed regrowth timers
+  if this.regrowth_timer and GetTime() > this.regrowth_timer  then
+    local target = this.regrowth_target or player
+    local duration = 21
+
+    libpredict:Hot(player, target, "Regr", duration)
+    libpredict.sender:SendHealCommMsg("Regr/"..target.."/"..duration.."/")
+    this.regrowth_target = this.regrowth_target_next
+    this.regrowth_timer = nil
+  end
+end)
 
 -- tbc
 libpredict.sender:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -422,6 +521,14 @@ libpredict.sender:SetScript("OnEvent", function()
       local amount = cache[spell_queue[2]][1]
       local casttime = time
 
+      if spell == REGROWTH then
+        if this.regrowth_timer then
+          this.regrowth_target_next = spell_queue[3]
+        else
+          this.regrowth_target = spell_queue[3]
+        end
+      end
+
       if spell == PRAYER_OF_HEALING then
         target = sender
 
@@ -470,6 +577,9 @@ libpredict.sender:SetScript("OnEvent", function()
       libpredict.sender:SendResCommMsg("RESNO " .. target)
       libpredict.sender.resurrecting = nil
     end
+    if spell_queue[1] == REGROWTH then
+      this.regrowth_timer = nil
+    end
   elseif event == "SPELLCAST_DELAYED" then
     if libpredict.sender.healing then
       libpredict:HealDelay(player, arg1)
@@ -478,7 +588,35 @@ libpredict.sender:SetScript("OnEvent", function()
   elseif strfind(event, "SPELLCAST_STOP", 1) then
     if strfind(event, "UNIT_", 1) and arg1 ~= "player" then return end
     libpredict:HealStop(player)
+    if pfUI.client < 20000 then -- vanilla
+      if spell_queue[1] == REJUVENATION then
+        libpredict:Hot(player, spell_queue[3], "Reju", rejuvDuration)
+        libpredict.sender:SendHealCommMsg("Reju/"..spell_queue[3].."/"..rejuvDuration.."/")
+      elseif spell_queue[1] == RENEW then
+        libpredict:Hot(player, spell_queue[3], "Renew", renewDuration)
+        libpredict.sender:SendHealCommMsg("Renew/"..spell_queue[3].."/"..renewDuration.."/")
+      elseif spell_queue[1] == REGROWTH then
+        this.regrowth_timer = GetTime() + 0.1
+      end
+    else -- tbc
+      --todo
+    end
   end
 end)
+
+function libpredict:GetHotDuration(unit, spell)
+  if unit == UNKNOWNOBJECT or unit == UNKOWNBEING then return end
+
+  local start, duration, timeleft
+
+  local unitdata = hots[UnitName(unit)]
+  if unitdata and unitdata[spell] and (unitdata[spell].start + unitdata[spell].duration) > GetTime() - 1 then
+    start = unitdata[spell].start
+    duration = unitdata[spell].duration
+    timeleft = (start + duration) - GetTime()
+  end
+
+  return start, duration, timeleft
+end
 
 pfUI.api.libpredict = libpredict

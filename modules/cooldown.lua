@@ -6,24 +6,26 @@ pfUI:RegisterModule("cooldown", "vanilla:tbc", function ()
   local hourcolor   = {strsplit(",", C.appearance.cd.hourcolor)}
   local daycolor    = {strsplit(",", C.appearance.cd.daycolor)}
 
-  local parent
+  local parent, parent_name
   local function pfCooldownOnUpdate()
     parent = this:GetParent()
     if not parent then this:Hide() end
+    parent_name = parent:GetName()
 
     -- avoid to set cooldowns on invalid frames
-    if parent and parent:GetName() and _G[parent:GetName() .. "Cooldown"] then
-      if not _G[parent:GetName() .. "Cooldown"]:IsShown() then
+    if parent_name and _G[parent_name .. "Cooldown"] then
+      if not _G[parent_name .. "Cooldown"]:IsShown() then
         this:Hide()
       end
     end
 
-    if not this.next then this.next = GetTime() + .1 end
-    if this.next > GetTime() then return end
-    this.next = GetTime() + .1
+    -- only run every 0.1 seconds from here on
+    if ( this.tick or .1) > GetTime() then return else this.tick = GetTime() + .1 end
 
     -- fix own alpha value (should be inherited, but somehow isn't always)
-    this:SetAlpha(parent:GetAlpha())
+    if this:GetAlpha() ~= parent:GetAlpha() then
+      this:SetAlpha(parent:GetAlpha())
+    end
 
     if this.start < GetTime() then
       -- calculating remaining time as it should be
@@ -56,7 +58,7 @@ pfUI:RegisterModule("cooldown", "vanilla:tbc", function ()
   local function pfCreateCoolDown(cooldown, start, duration)
     cooldown.pfCooldownText = CreateFrame("Frame", "pfCooldownFrame", cooldown:GetParent())
     cooldown.pfCooldownText:SetAllPoints(cooldown)
-    cooldown.pfCooldownText:SetFrameLevel(cooldown:GetParent():GetFrameLevel() + 1)
+    cooldown.pfCooldownText:SetFrameLevel(cooldown:GetParent():GetFrameLevel() + 2)
     cooldown.pfCooldownText.text = cooldown.pfCooldownText:CreateFontString("pfCooldownFrameText", "OVERLAY")
 
     if not cooldown.pfCooldownType then
@@ -75,7 +77,7 @@ pfUI:RegisterModule("cooldown", "vanilla:tbc", function ()
       size = math.max((height > 0 and height * .64 or 16), size)
     end
 
-    cooldown.pfCooldownText.text:SetFont(pfUI.font_unit, size, "OUTLINE")
+    cooldown.pfCooldownText.text:SetFont(pfUI.media[C.appearance.cd.font], size, "OUTLINE")
     cooldown.pfCooldownText.text:SetPoint("CENTER", cooldown.pfCooldownText, "CENTER", 0, 0)
     cooldown.pfCooldownText:SetScript("OnUpdate", pfCooldownOnUpdate)
   end
@@ -102,12 +104,12 @@ pfUI:RegisterModule("cooldown", "vanilla:tbc", function ()
 
     -- don't draw global cooldowns
     if this.pfCooldownType == "NOGCD" and duration < tonumber(C.appearance.cd.threshold) then
-      return
+      start, duration = 0, 0
     end
 
     -- disable GCDs on non pfUI frames
     if not this.pfCooldownType and duration < tonumber(C.appearance.cd.threshold) then
-      return
+      start, duration = 0, 0
     end
 
     -- hide animation

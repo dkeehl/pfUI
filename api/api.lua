@@ -219,13 +219,15 @@ end
 local capture_cache = {}
 function pfUI.api.GetCaptures(pat)
   local r = capture_cache
+
   if not r[pat] then
     for a, b, c, d, e in gfind(gsub(pat, "%((.+)%)", "%1"), gsub(pat, "%d%$", "%%(.-)$")) do
       r[pat] = { a, b, c, d, e}
     end
+
+    r[pat] = r[pat] or {}
   end
 
-  if not r[pat] then return nil, nil, nil, nil end
   return r[pat][1], r[pat][2], r[pat][3], r[pat][4], r[pat][5]
 end
 
@@ -713,6 +715,7 @@ end
 -- 'position'   [string]    where it should appear, takes the following:
 --                          "TOP", "RIGHT", "BOTTOM", "LEFT"
 function pfUI.api.AlignToPosition(frame, anchor, position, spacing)
+  if frame == anchor then return end
   frame:ClearAllPoints()
   if position == "TOP" and anchor then
     frame:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, (spacing or 0))
@@ -1046,13 +1049,15 @@ function pfUI.api.CreateBackdrop(f, inset, legacy, transp, backdropSetting)
 
     if blizz then
       if not f.backdrop_border then
-        local border = CreateFrame("Frame", nil, f)
-        border:SetFrameLevel(level + 1)
+        local border = CreateFrame("Frame", nil, f.backdrop)
+        border:SetFrameLevel(level + 2)
         f.backdrop_border = border
-      end
 
-      f.backdrop.SetBackdropBorderColor = function(self, r, g, b, a)
-        f.backdrop_border:SetBackdropBorderColor(r,g,b,a)
+        local hookSetBackdropBorderColor = f.backdrop.SetBackdropBorderColor
+        f.backdrop.SetBackdropBorderColor = function(self, r, g, b, a)
+          f.backdrop_border:SetBackdropBorderColor(r, g, b, a)
+          hookSetBackdropBorderColor(f.backdrop, r, g, b, a)
+        end
       end
 
       f.backdrop_border:SetAllPoints(f.backdrop)
@@ -1077,10 +1082,10 @@ function pfUI.api.CreateBackdropShadow(f)
   f.backdrop_shadow = CreateFrame("Frame", nil, anchor)
   f.backdrop_shadow:SetFrameStrata("BACKGROUND")
   f.backdrop_shadow:SetFrameLevel(1)
-  f.backdrop_shadow:SetPoint("TOPLEFT", anchor, "TOPLEFT", -7, 7)
-  f.backdrop_shadow:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", 7, -7)
+  f.backdrop_shadow:SetPoint("TOPLEFT", anchor, "TOPLEFT", -5, 5)
+  f.backdrop_shadow:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", 5, -5)
   f.backdrop_shadow:SetBackdrop(pfUI.backdrop_shadow)
-  f.backdrop_shadow:SetBackdropBorderColor(0,0,0,tonumber(pfUI_config.appearance.border.shadow_intensity))
+  f.backdrop_shadow:SetBackdropBorderColor(0, 0, 0, tonumber(pfUI_config.appearance.border.shadow_intensity))
 end
 
 -- [ Bar Layout Options ] --
@@ -1210,26 +1215,64 @@ end
 -- [ GetColoredTime ] --
 -- 'remaining'   the time in seconds that should be converted
 -- return        a colored string including a time unit (m/h/d)
+local color_day, color_hour, color_minute, color_low, color_normal
 function pfUI.api.GetColoredTimeString(remaining)
   if not remaining then return "" end
-  if remaining > 356400 then -- Show days if remaining is > 99 Hours (99 * 60 * 60)
-    local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.daycolor)
-    return pfUI.api.rgbhex(r,g,b) .. round(remaining / 86400) .. "|rd"
-  elseif remaining > 5940 then -- Show hours if remaining is > 99 Minutes (99 * 60)
-    local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.hourcolor)
-    return pfUI.api.rgbhex(r,g,b) .. round(remaining / 3600) .. "|rh"
-  elseif remaining > 99 then -- Show minutes if remaining is > 99 Seconds (99)
-    local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.minutecolor)
-    return pfUI.api.rgbhex(r,g,b) .. round(remaining / 60) .. "|rm"
+
+  -- Show days if remaining is > 99 Hours (99 * 60 * 60)
+  if remaining > 356400 then
+    if not color_day then
+      local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.daycolor)
+      color_day = pfUI.api.rgbhex(r,g,b)
+    end
+
+    return color_day .. round(remaining / 86400) .. "|rd"
+
+  -- Show hours if remaining is > 99 Minutes (99 * 60)
+  elseif remaining > 5940 then
+    if not color_hour then
+      local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.hourcolor)
+      color_hour = pfUI.api.rgbhex(r,g,b)
+    end
+
+    return color_hour .. round(remaining / 3600) .. "|rh"
+
+  -- Show minutes if remaining is > 99 Seconds (99)
+  elseif remaining > 99 then
+    if not color_minute then
+      local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.minutecolor)
+      color_minute = pfUI.api.rgbhex(r,g,b)
+    end
+
+    return color_minute .. round(remaining / 60) .. "|rm"
+
+  -- Show milliseconds on low
   elseif remaining <= 5 and pfUI_config.appearance.cd.milliseconds == "1" then
-    local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.lowcolor)
-    return pfUI.api.rgbhex(r,g,b) .. string.format("%.1f", round(remaining,1))
+    if not color_low then
+      local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.lowcolor)
+      color_low = pfUI.api.rgbhex(r,g,b)
+    end
+
+    return color_low .. string.format("%.1f", round(remaining,1))
+
+  -- Show seconds on low
   elseif remaining <= 5 then
-    local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.lowcolor)
-    return pfUI.api.rgbhex(r,g,b) .. round(remaining)
+    if not color_low then
+      local r,g,b,a = pfUI.api.GetStringColor(C.appearance.cd.lowcolor)
+      color_low = pfUI.api.rgbhex(r,g,b)
+    end
+
+    return color_low .. round(remaining)
+
+  -- Show seconds on normal
   elseif remaining >= 0 then
-    local r, g, b, a = pfUI.api.GetStringColor(C.appearance.cd.normalcolor)
-    return pfUI.api.rgbhex(r,g,b) .. round(remaining)
+    if not color_normal then
+      local r, g, b, a = pfUI.api.GetStringColor(C.appearance.cd.normalcolor)
+      color_normal = pfUI.api.rgbhex(r,g,b)
+    end
+    return color_normal .. round(remaining)
+
+  -- Return empty
   else
     return ""
   end

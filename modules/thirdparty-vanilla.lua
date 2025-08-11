@@ -40,16 +40,16 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
       function() -- single
         RefreshKtmWidth()
         KLHTM_Frame:ClearAllPoints()
-        KLHTM_Frame:SetPoint("TOPLEFT", pfUI.chat.right, "TOPLEFT", 0, 0)
+        KLHTM_Frame:SetPoint("TOPLEFT", pfUI.chat.right, "TOPLEFT", -.8, .5)
         KLHTM_Frame:SetPoint("BOTTOMRIGHT", pfUI.chat.right, "BOTTOMRIGHT", 0, pfUI.panel.right:GetHeight())
-        KLHTM_Frame.backdrop:SetPoint("BOTTOMRIGHT", KLHTM_Frame, "BOTTOMRIGHT", 0, -(KLHTM_Frame:GetBottom() - pfUI.chat.right:GetBottom())-default_border)
+        KLHTM_Frame.backdrop:SetPoint("BOTTOMRIGHT", KLHTM_Frame, "BOTTOMRIGHT", 0, -(KLHTM_Frame:GetBottom() - pfUI.chat.right:GetBottom())-default_border-.5)
       end,
       function() -- dual
         RefreshKtmWidth()
         KLHTM_Frame:ClearAllPoints()
-        KLHTM_Frame:SetPoint("TOPLEFT", pfUI.chat.right, "TOPLEFT", 0, 0)
+        KLHTM_Frame:SetPoint("TOPLEFT", pfUI.chat.right, "TOPLEFT", -.8, .5)
         KLHTM_Frame:SetPoint("BOTTOMRIGHT", pfUI.chat.right, "BOTTOM", -default_border, pfUI.panel.right:GetHeight())
-        KLHTM_Frame.backdrop:SetPoint("BOTTOMRIGHT", KLHTM_Frame, "BOTTOMRIGHT", 0, -(KLHTM_Frame:GetBottom() - pfUI.chat.right:GetBottom())-default_border)
+        KLHTM_Frame.backdrop:SetPoint("BOTTOMRIGHT", KLHTM_Frame, "BOTTOMRIGHT", 0, -(KLHTM_Frame:GetBottom() - pfUI.chat.right:GetBottom())-default_border-.5)
       end,
       function() -- show
         KLHTM_SetVisible(true)
@@ -156,6 +156,79 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
       if KLHTM_RaidFrameBottomLine then KLHTM_RaidFrameBottomLine:Hide() end
       if KLHTM_SelfFrameLine then KLHTM_SelfFrameLine:Hide() end
       if KLHTM_SelfFrameBottomLine then KLHTM_SelfFrameBottomLine:Hide() end
+    end
+  end)
+
+  HookAddonOrVariable("TWThreat", function()
+    local docktable = { "twt", "TODO", "TWTMain",
+      function() -- single
+        TWTMain:ClearAllPoints()
+        TWTMain:SetPoint("TOPLEFT", pfUI.chat.right, "TOPLEFT", 0, 0)
+        local width = pfUI.chat.right:GetWidth() - 3
+        TWTMain:SetScale(width / TWTMain:GetWidth())
+        TWTMainSettingsFrameHeightSlider:SetMinMaxValues(15, 30)
+        TWTMainSettingsFrameHeightSlider:SetValue(15)
+        TWT_CONFIG.windowScale = width / TWTMain:GetWidth()
+        TWTMain:SetHeight(pfUI.chat.right:GetHeight() / TWT_CONFIG.windowScale - TWT_CONFIG.barHeight)
+        TWTMainMainWindow_Resized()
+      end,
+      function() -- dual
+        TWTMain:ClearAllPoints()
+        TWTMain:SetPoint("TOPLEFT", pfUI.chat.right, "TOPLEFT", 0, 0)
+        local width = (pfUI.chat.right:GetWidth() - 3) / 2
+        TWTMain:SetScale(width / TWTMain:GetWidth())
+        TWT_CONFIG.windowScale = width / TWTMain:GetWidth()
+        TWTMain:SetHeight(pfUI.chat.right:GetHeight() / TWT_CONFIG.windowScale - TWT_CONFIG.barHeight)
+        TWTMainMainWindow_Resized()
+      end,
+      function() -- show
+        TWTMain:Show()
+      end,
+      function() -- hide
+        TWTMain:Hide()
+      end,
+      function() -- once
+        return
+      end
+    }
+
+    pfUI.thirdparty.meters:RegisterMeter("threat", docktable)
+
+    if C.thirdparty.twt.skin == "1" then
+      CreateBackdrop(TWTMain, nil, nil, (C.thirdparty.chatbg == "1" and .8))
+      CreateBackdropShadow(TWTMain)
+
+      if C.thirdparty.chatbg == "1" and C.chat.global.custombg == "1" then
+        local r, g, b, a = strsplit(",", C.chat.global.background)
+        TWTMain.backdrop:SetBackdropColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
+
+        local r, g, b, a = strsplit(",", C.chat.global.border)
+        TWTMain.backdrop:SetBackdropBorderColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
+      end
+
+      TWTMainTitleBG:Hide()
+      TWTMainBarsBG:Hide()
+
+      -- theme buttons
+      local buttons = { "TWTMainSettingsButton", "TWTMainLockButton", "TWTMainCloseButton" }
+
+      for i, button in pairs(buttons) do
+        local b = _G[button]
+        if not b then return end
+        SkinButton(b)
+
+
+        local p,rt,rp,xo,yo = b:GetPoint()
+        if not b.pfSet then
+          b:SetPoint(p,rt,rp,xo - 5,yo)
+          b.pfSet = true
+        end
+      end
+
+      -- buttons
+      TWTMainSettingsButton:SetText("O")
+      TWTMainLockButton:SetText("L")
+      TWTMainCloseButton:SetText("X")
     end
   end)
 
@@ -463,7 +536,7 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
         local colorstr = rgbhex(RAID_CLASS_COLORS[class].r, RAID_CLASS_COLORS[class].g, RAID_CLASS_COLORS[class].b, RAID_CLASS_COLORS[class].a)
         _G.WIM_ClassColors[wimclass] = gsub(colorstr, "^|cff", "")
       end
-    end, true)
+    end)
 
     -- convo menu
     CreateBackdrop(WIM_Icon_ToolTip, 0, nil, tonumber(C.tooltip.alpha))
@@ -487,7 +560,7 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
           btn:SetText(btn_txt)
         end
       end
-    end, true)
+    end)
 
     if WIM_HistoryFrame then -- history frame
       CreateBackdrop(WIM_HistoryFrame, nil, nil, .8)
@@ -783,7 +856,7 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
 
     -- make theorycraft aware of pfUI bars
     for i=1,10 do
-      for j=1,10 do
+      for j=1,12 do
         TheoryCraft_SetUpButton(pfUI.bars[i][j]:GetName(), "Normal")
       end
     end
@@ -936,13 +1009,17 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
     if C.thirdparty.bcs.enable == "0" then return end
     StripTextures(BetterCharacterAttributesFrame)
 
-    SkinDropDown(PlayerStatFrameLeftDropDown, nil, nil, nil, true)
-    PlayerStatFrameLeftDropDown.backdrop:SetPoint("TOPLEFT", 19, -2)
-    PlayerStatFrameLeftDropDown.backdrop:SetPoint("BOTTOMRIGHT", -19, 7)
+    if PlayerStatFrameLeftDropDown then
+      SkinDropDown(PlayerStatFrameLeftDropDown, nil, nil, nil, true)
+      PlayerStatFrameLeftDropDown.backdrop:SetPoint("TOPLEFT", 19, -2)
+      PlayerStatFrameLeftDropDown.backdrop:SetPoint("BOTTOMRIGHT", -19, 7)
+    end
 
-    SkinDropDown(PlayerStatFrameRightDropDown, nil, nil, nil, true)
-    PlayerStatFrameRightDropDown.backdrop:SetPoint("TOPLEFT", 19, -2)
-    PlayerStatFrameRightDropDown.backdrop:SetPoint("BOTTOMRIGHT", -19, 7)
+    if PlayerStatFrameRightDropDown then
+      SkinDropDown(PlayerStatFrameRightDropDown, nil, nil, nil, true)
+      PlayerStatFrameRightDropDown.backdrop:SetPoint("TOPLEFT", 19, -2)
+      PlayerStatFrameRightDropDown.backdrop:SetPoint("BOTTOMRIGHT", -19, 7)
+    end
   end)
 
   HookAddonOrVariable("MyRolePlay", function()
@@ -1135,7 +1212,7 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
     -- because it only attempts to add rarity borders which pfUI already does.
 
     -- make sure strata won't get touched again
-    PaperDollHook = function() return end
+    _G.PaperDollHook = function() return end
 
     -- restore original frame strata
     PaperDollFrame:SetFrameStrata("DIALOG")
@@ -1143,4 +1220,40 @@ pfUI:RegisterModule("thirdparty-vanilla", "vanilla", function()
     -- disable macro extenders setting
     MacroExtender_Options.Inventory = nil
   end)
+
+  -- UnitXP SP3 compatibility
+  -- https://github.com/allfoxwy/UnitXP_SP3
+  HookAddonOrVariable("UnitXP_SP3_Addon", function()
+    -- skin UnitXP SP3 window and elements
+    StripTextures(xpsp3Frame)
+    CreateBackdrop(xpsp3Frame)
+    CreateBackdropShadow(xpsp3Frame)
+
+    StripTextures(xpsp3tooltip)
+    CreateBackdrop(xpsp3tooltip)
+    CreateBackdropShadow(xpsp3tooltip)
+
+    SkinCheckbox(xpsp3_checkButton_minimapButton)
+    SkinCheckbox(xpsp3_checkButton_modernNameplate)
+    SkinCheckbox(xpsp3_checkButton_prioritizeTargetNameplate)
+    SkinCheckbox(xpsp3_checkButton_prioritizeMarkedNameplate)
+    SkinCheckbox(xpsp3_checkButton_nameplateCombatFilter)
+    SkinCheckbox(xpsp3_checkButton_showInCombatNameplatesNearPlayer)
+    SkinCheckbox(xpsp3_checkButton_notify_flashTaskbarIcon)
+    SkinCheckbox(xpsp3_checkButton_notify_playSystemDefaultSound)
+    SkinCheckbox(xpsp3_checkButton_cameraPinHeight)
+
+    SkinButton(xpsp3_button_cameraHeight_raise)
+    SkinButton(xpsp3_button_cameraHeight_lower)
+    SkinButton(xpsp3_button_cameraPitch_up)
+    SkinButton(xpsp3_button_cameraPitch_down)
+    SkinButton(xpsp3_button_cameraHorizontalDisplacement_leftPlayer)
+    SkinButton(xpsp3_button_cameraHorizontalDisplacement_rightPlayer)
+    SkinButton(xpsp3_buttonCancel_resetCamera)
+    SkinButton(xpsp3_buttonCancel_close)
+
+    StripTextures(xpsp3_editBox_FPScap, "BACKGROUND")
+    CreateBackdrop(xpsp3_editBox_FPScap)
+  end)
+
 end)

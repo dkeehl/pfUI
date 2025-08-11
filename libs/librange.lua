@@ -105,6 +105,15 @@ wand:SetScript("OnEvent", function()
   PlayerFrame.wandCombat = event == "START_AUTOREPEAT_SPELL" and true or nil
 end)
 
+--Players with combo points aren't necessarily auto attacking, meaning we can't use inCombat.
+--This allows us to avoid rangechecking when the player has combo points to avoid losing them.
+local hascombopoints
+local combo = CreateFrame("Frame", "pfComboPointsDetect")
+combo:RegisterEvent("PLAYER_COMBO_POINTS")
+combo:SetScript("OnEvent", function()
+  hascombopoints = GetComboPoints() > 0
+end)
+
 librange:Hide()
 librange:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 librange:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -132,6 +141,8 @@ librange:SetScript("OnEvent", function()
   end
 end)
 
+local _, class = UnitClass("player")
+local druid = class == "DRUID"
 local target_event = TargetFrame_OnEvent
 local target_nop = function() return end
 
@@ -150,6 +161,19 @@ librange:SetScript("OnUpdate", function()
   if this.id <= numunits and librange.slot then
     local unit = units[this.id]
     if not UnitIsUnit("target", unit) then
+      -- try to read distance via superwow first
+      if superwow_active then
+        local x1, y1, z1 = UnitPosition("player")
+        local x2, y2, z2 = UnitPosition(unit)
+        -- only continue if we got position values
+        if x1 and y1 and z1 and x2 and y2 and z2 then
+          local distance = ((x2 - x1)^2 + (y2 - y1)^2 + (z2 - z1)^2)^.5
+          unitdata[unit] = distance < 45 and 1 or 0
+          this.id = this.id + 1
+          return
+        end
+      end
+
       -- suspend for various conditions
       if pfUI.loot and pfUI.loot:IsShown() then return nil end
       if LootFrame and LootFrame:IsShown() then return nil end
@@ -157,6 +181,8 @@ librange:SetScript("OnUpdate", function()
       if TradeFrame and TradeFrame:IsShown() then return nil end
       if PlayerFrame and PlayerFrame.inCombat then return nil end
       if PlayerFrame and PlayerFrame.wandCombat then return nil end
+      if druid and UnitPowerType("player") == 3 then return nil end
+      if hascombopoints then return nil end
 
       _G.PlaySound = SoundOff
       pfScanActive = true

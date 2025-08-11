@@ -386,11 +386,8 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
     self.spellslot = nil
     self.booktype = nil
     if macro then
-      local name, body, _
-      for slot = 1, 36 do
-        name, _, body = GetMacroInfo(slot)
-        if name == macro then break end
-      end
+      local slot = GetMacroIndexByName(macro)
+      local name, _, body = GetMacroInfo(slot)
 
       if name and body then
         local match
@@ -582,6 +579,7 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
       -- display autocast
       if autocast then
         self.autocast:Show()
+        self.autocast:SetAlpha(self:GetAlpha() * 0.10)
       else
         self.autocast:Hide()
       end
@@ -687,10 +685,18 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
 
     -- active border
     if active then
-      button.backdrop:SetBackdropBorderColor(cr,cg,cb,1)
+      if not button.border_active then
+        button.backdrop:SetBackdropBorderColor(cr,cg,cb,1)
+        button.border_active = true
+      end
+
       button.active:Show()
     else
-      button.backdrop:SetBackdropBorderColor(er,eg,eb,ea)
+      if button.border_active then
+        button.backdrop:SetBackdropBorderColor(er,eg,eb,ea)
+        button.border_active = nil
+      end
+
       button.active:Hide()
     end
   end
@@ -952,21 +958,21 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
     -- setup page switch frame
     local pageswitch = CreateFrame("Frame", "pfActionBarPageSwitch", UIParent)
     pageswitch:SetScript("OnUpdate", function()
-      if C.bars.pagemaster == "1" then
-        if IsShiftKeyDown() then
-          SwitchBar(shift)
-          return
-        elseif IsControlKeyDown() then
-          SwitchBar(ctrl)
-          return
-        elseif IsAltKeyDown() then
-          SwitchBar(alt)
-          return
-        else
-          SwitchBar(default)
-        end
+      -- switch actionbar page depending on meta key that is pressed
+      if C.bars.pagemastershift == "1" and IsShiftKeyDown() then
+        SwitchBar(shift)
+        return
+      elseif C.bars.pagemasterctrl == "1" and IsControlKeyDown() then
+        SwitchBar(ctrl)
+        return
+      elseif C.bars.pagemasteralt == "1" and IsAltKeyDown() then
+        SwitchBar(alt)
+        return
+      elseif C.bars.pagemasteralt == "1" or C.bars.pagemasterctrl == "1" or C.bars.pagemastershift == "1" then
+        SwitchBar(default)
       end
 
+      -- switch actionbar page if druid stealth is detected
       if C.bars.druidstealth == "1" then
         local stealth = IsCatStealth()
         if stealth and _G.CURRENT_ACTIONBAR_PAGE == 1 then
@@ -1406,48 +1412,50 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
       CreateBackdrop(bars[i], border)
       CreateBackdropShadow(bars[i])
       bars[i].backdrop:Show()
+    elseif bars[i].backdrop then
+      bars[i].backdrop:Hide()
+    end
 
-      -- share backdrop of main and top actionbar
-      if i == 6 then
-        bars[6].OnMove = bars[6].OnMove or function()
-          local _, a, _ = bars[6]:GetPoint()
-          if a == bars[1] and C.bars.bar1.enable == "1"
-            and C.bars.bar1.background == "1" and C.bars.bar6.background == "1"
-            and C.bars.bar1.autohide == "0" and C.bars.bar6.autohide == "0"
-            and C.bars.bar1.icon_size == C.bars.bar6.icon_size
-            and C.bars.bar1.spacing == C.bars.bar6.spacing
-            and C.bars.bar1.formfactor == C.bars.bar6.formfactor
-            and C.bars.bar1.buttons == C.bars.bar6.buttons
-          then
-            bars[1].backdrop:ClearAllPoints()
-            bars[1].backdrop:SetPoint("BOTTOMRIGHT", bars[1], "BOTTOMRIGHT", border, -border)
-            bars[1].backdrop:SetPoint("TOPLEFT", bars[6], "TOPLEFT", -border, border)
+    -- share backdrop of main and top actionbar
+    if bars[6] and bars[1] then
+      bars[6].OnMove = bars[6].OnMove or function()
+        bars[1].mergedBackdrop = bars[1].mergedBackdrop or CreateFrame("Frame", nil, UIParent)
+        bars[1].mergedBackdrop:SetPoint("TOPLEFT", bars[6], "TOPLEFT", 0, 0)
+        bars[1].mergedBackdrop:SetPoint("BOTTOMRIGHT", bars[1], "BOTTOMRIGHT", 0, 0)
+        CreateBackdrop(bars[1].mergedBackdrop)
+
+        local _, anchor, _ = bars[6]:GetPoint()
+        if anchor == bars[1] and C.bars.bar1.enable == "1"
+          and C.bars.bar1.enable == "1" and C.bars.bar6.enable == "1"
+          and C.bars.bar1.background == "1" and C.bars.bar6.background == "1"
+          and C.bars.bar1.autohide == "0" and C.bars.bar6.autohide == "0"
+          and C.bars.bar1.icon_size == C.bars.bar6.icon_size
+          and C.bars.bar1.spacing == C.bars.bar6.spacing
+          and C.bars.bar1.formfactor == C.bars.bar6.formfactor
+          and C.bars.bar1.buttons == C.bars.bar6.buttons
+        then
+          bars[1].mergedBackdrop:Show()
+
+          if C.bars.bar1.background == "1" and bars[1].backdrop then
+            bars[1].backdrop:Hide()
+          end
+
+          if C.bars.bar6.background == "1" and bars[6].backdrop then
             bars[6].backdrop:Hide()
-          else
-            if C.bars.bar1.background == "1" then
-              -- create/reset bar1 backdrop if required
-              CreateBackdrop(bars[1], border)
-              bars[1].backdrop:ClearAllPoints()
-              bars[1].backdrop:SetPoint("BOTTOMRIGHT", bars[1], "BOTTOMRIGHT", border, -border)
-              bars[1].backdrop:SetPoint("TOPLEFT", bars[1], "TOPLEFT", -border, border)
-            end
+          end
+        else
+          bars[1].mergedBackdrop:Hide()
 
-            if C.bars.bar6.background == "1" then
-              bars[6].backdrop:Show()
-            end
+          if C.bars.bar1.background == "1" and bars[1].backdrop then
+            bars[1].backdrop:Show()
+          end
+
+          if C.bars.bar6.background == "1" and bars[6].backdrop then
+            bars[6].backdrop:Show()
           end
         end
-
-        bars[i].OnMove()
       end
-    else
-      if bars[i].backdrop then
-        bars[i].backdrop:Hide()
-      end
-
-      if bars[i].shadow then
-        bars[i].shadow:Hide()
-      end
+      bars[6].OnMove()
     end
   end
 
@@ -1456,6 +1464,8 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
   pfUI.bars.update = updatecache
   pfUI.bars.buttons = buttoncache
   pfUI.bars.ButtonFullUpdate = ButtonFullUpdate
+  pfUI.bars.ButtonEnter = ButtonEnter
+  pfUI.bars.ButtonLeave = ButtonLeave
 
   pfUI.bars.UpdateGrid = function(self, state, typ)
     if not typ then
@@ -1584,9 +1594,35 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
   if C.bars.reagents == "1" then
     local reagent_slots = { }
     local reagent_counts = { }
-    local reagent_textureslots = { }
     local reagent_capture = SPELL_REAGENTS.."(.+)"
     local scanner = libtipscan:GetScanner("actionbar")
+
+    local UpdateSlot = function(slot)
+      local texture = GetActionTexture(slot)
+
+      -- update buttons that previously had an reagent
+      if reagent_slots[slot] and not HasAction(slot) then
+        reagent_slots[slot] = nil
+        updatecache[slot] = true
+      end
+
+      -- search for reagent requirements
+      if HasAction(slot) then
+        scanner:SetAction(slot)
+        local _, reagents = scanner:Find(reagent_capture)
+
+        -- remove reagent counts if existing
+        reagents = reagents and string.gsub(reagents, " %((.+)%)", "")
+
+        -- update on reagent requirement changes
+        if reagents and reagent_slots[slot] ~= reagents then
+          reagent_counts[reagents] = reagent_counts[reagents] or 0
+          reagent_slots[slot] = reagents
+          updatecache[slot] = true
+        end
+      end
+    end
+
     local reagentcounter = CreateFrame("Frame", "pfReagentCounter", UIParent)
     reagentcounter:RegisterEvent("PLAYER_ENTERING_WORLD")
     reagentcounter:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
@@ -1595,47 +1631,40 @@ pfUI:RegisterModule("actionbar", "vanilla:tbc", function ()
       if event == "BAG_UPDATE" then
         this.event = true
       else
-        for slot = 1, 120 do
-          local texture = GetActionTexture(slot)
-
-          -- update buttons that previously had an reagent
-          if reagent_slots[slot] and not texture then
-            reagent_textureslots[slot] = nil
-            reagent_slots[slot] = nil
-            updatecache[slot] = true
-          end
-
-          -- search for reagents on buttons with different icon
-          if reagent_textureslots[slot] ~= texture then
-            if HasAction(slot) then
-              reagent_textureslots[slot] = texture
-              scanner:SetAction(slot)
-              local _, reagents = scanner:Find(reagent_capture)
-              if reagents then
-                reagent_slots[slot] = reagents
-                reagent_counts[reagents] = reagent_counts[reagents] or 0
-                updatecache[slot] = true
-              end
-            end
-          end
-        end
+        this.scan = 1
       end
     end)
 
-    -- limit bag events to one per second
+    -- limit events to one per second and smoothen action scanning
     reagentcounter:SetScript("OnUpdate", function()
+      -- scan one action slot per frame
+      if this.scan and this.scan <= 120 then
+        UpdateSlot(this.scan)
+        this.scan = this.scan + 1
+      end
+
+      -- trigger reagent count updates after action scans
+      if this.scan and this.scan >= 120 then
+        this.event = true
+        this.scan = nil
+      end
+
+      -- queue events to fire only once per second
+      if not this.event then return end
       if ( this.tick or 1) > GetTime() then return else this.tick = GetTime() + 1 end
 
-      if this.event then
-        for item in pairs(reagent_counts) do
-          reagent_counts[item] = GetItemCount(item)
-        end
-        for slot in pairs(reagent_slots) do
-          updatecache[slot] = true
-        end
-
-        this.event = nil
+      -- scan for all reagent item counts
+      for item in pairs(reagent_counts) do
+        reagent_counts[item] = GetItemCount(item)
       end
+
+      -- update all actionbar buttons
+      for slot in pairs(reagent_slots) do
+        updatecache[slot] = true
+      end
+
+      -- remove event trigger
+      this.event = nil
     end)
 
     function IsReagentAction(slot)
